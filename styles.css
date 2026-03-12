@@ -76,6 +76,15 @@ button {
     background: #c62828;
 }
 
+.neutral {
+    background: #3587e5;
+    color: white;
+}
+
+.neutral:hover {
+    background: #3570b3;
+}
+
 .footer {
     margin-top: 30px;
     font-size: 12px;
