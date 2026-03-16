@@ -32,7 +32,7 @@ export function checkDomainRules(domain) {
     which visually looks like "apple.com"
     */
     if (domain.includes("xn--")) {
-        suspicious = true;
+        return { block: true};
     }
 
 
@@ -40,7 +40,7 @@ export function checkDomainRules(domain) {
     if (parts.length > 4) {
         suspicious = true;
     }
-    
+
 
     // IP address domain
     const ipPattern = /^\d+\.\d+\.\d+\.\d+$/;
