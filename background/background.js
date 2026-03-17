@@ -1,4 +1,4 @@
-import { runRuleEngine } from "../layers/layer1_rules/ruleEngine.js";  
+import { runRuleEngine } from "../layers/layer_1/ruleEngine.js";  
 
 console.log("Phishing detector background running");
 
@@ -29,7 +29,7 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
     if (url.startsWith("chrome-extension://")) return;
 
     // Ignore internal extension page
-    // If we don't ignore these, it will scan its own pages and cause infinite loops.
+    // If we don't ignore these, it will scan its own pages and cause infinite loops..
     if (url.includes("loading.html") || url.includes("block.html")) return; 
 
     // Continue Once bypass(used by "Continue Anyway" button)
@@ -48,44 +48,53 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
     if (!domain) return;
 
     
-    /******* LAYER_1 ******/
-    const result = await runRuleEngine(url, domain);
-    console.log("Layer 1 result:", result.status , url);
+     //  redirect to loading page
+    scanningTabs.add(tabId);
 
-    /* SAFE → allow navigation */
-    if (result.status === "safe") {
-        return;
-    }
+    chrome.tabs.update(tabId, {
+        url:
+            chrome.runtime.getURL("ui/loading.html") +
+            "?url=" +
+            encodeURIComponent(url),
+    });
+});
 
-    /* PHISHING → block immediately */
-    if (result.status === "phishing") {
 
-        chrome.tabs.update(tabId, {
-            url:
-                chrome.runtime.getURL("ui/block.html") +
-                "?url=" +
-                encodeURIComponent(url),
+chrome.runtime.onMessage.addListener((message, sender) => {
+
+    const tabId = sender.tab?.id;
+    if (!tabId) return;
+
+    // SCAN FLOW
+    if (message.action === "scanNow") {
+
+        const url = message.url;
+        const domain = getDomain(url);
+        if (!domain) return;
+
+        runRuleEngine(url, domain).then(result => {
+
+            if (result.status === "phishing" || result.status === "suspicious") {
+
+                chrome.tabs.update(tabId, {
+                    url:
+                        chrome.runtime.getURL("ui/block.html") +
+                        "?url=" +
+                        encodeURIComponent(url),
+                });
+
+            } else {
+
+                chrome.tabs.update(tabId, {
+                    url: url,
+                });
+
+            }
+
         });
 
         return;
     }
-
-    /* SUSPICIOUS → allow for now (Layer 2 not implemented yet) */
-    if (result.status === "suspicious") {
-
-        console.log("Suspicious site detected but Layer 2 not implemented yet.");
-
-        return;
-    }
-});
-
-
-
-// Listen for actions from block.html
-chrome.runtime.onMessage.addListener((message, sender) => {
-    const tabId = sender.tab?.id;
-
-    if (!tabId) return;
 
     // Continue once
     if (message.action === "continueOnce") {
@@ -96,7 +105,7 @@ chrome.runtime.onMessage.addListener((message, sender) => {
         });
     }
 
-    // Add to whitelist
+    //  Add to whitelist
     if (message.action === "addWhitelist") {
         const domain = getDomain(message.url);
 
@@ -115,8 +124,9 @@ chrome.runtime.onMessage.addListener((message, sender) => {
         });
     }
 
-    // Go back
+    //  Go back
     if (message.action === "goBack") {
         chrome.tabs.remove(tabId);
     }
+
 });
